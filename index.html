@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Christmas Magic - Final Build</title>
+    <title>Merry Christmas - Performance Build</title>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&display=swap" rel="stylesheet">
     <style>
         :root { --gold: #d4af37; --cream: #fceea7; }
-        body { margin: 0; background: #000; color: white; font-family: 'Times New Roman', serif; overflow: hidden; user-select: none; }
+        body { margin: 0; background: #000; color: white; font-family: 'Cinzel', serif; overflow: hidden; user-select: none; }
         canvas { display: block; }
 
-        /* Loader */
+        /* 高性能加载器 */
         #loader {
             position: fixed; inset: 0; background: #000;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -18,9 +18,9 @@
         }
         .spinner {
             width: 40px; height: 40px; border: 2px solid rgba(212, 175, 55, 0.1);
-            border-top: 1px solid var(--gold); border-radius: 50%; animation: spin 1s linear infinite;
+            border-top: 2px solid var(--gold); border-radius: 50%; animation: spin 1s linear infinite;
         }
-        #status { margin-top: 20px; color: var(--gold); font-size: 12px; letter-spacing: 2px; font-family: 'Cinzel'; }
+        #status { margin-top: 20px; color: var(--gold); font-size: 11px; letter-spacing: 2px; }
         #start-btn {
             display: none; margin-top: 25px; background: none; border: 1px solid var(--gold);
             color: var(--gold); padding: 12px 35px; cursor: pointer; font-family: 'Cinzel';
@@ -28,12 +28,12 @@
         }
         #start-btn:hover { background: var(--gold); color: #000; box-shadow: 0 0 20px var(--gold); }
 
-        /* UI Layer */
+        /* UI 布局 */
         .ui { position: fixed; inset: 0; pointer-events: none; z-index: 100; transition: opacity 0.5s; }
         .ui-hidden { opacity: 0; }
         h1 {
-            position: absolute; top: 6%; width: 100%; text-align: center; font-size: 50px; margin: 0;
-            font-family: 'Cinzel', serif; background: linear-gradient(to bottom, #fff, var(--gold));
+            position: absolute; top: 6%; width: 100%; text-align: center; font-size: 45px; margin: 0;
+            background: linear-gradient(to bottom, #fff, var(--gold));
             -webkit-background-clip: text; -webkit-text-fill-color: transparent;
             filter: drop-shadow(0 0 15px rgba(212, 175, 55, 0.4));
         }
@@ -43,9 +43,9 @@
             border: 1px solid var(--gold); color: var(--gold); padding: 10px 25px;
             font-family: 'Cinzel'; cursor: pointer; transition: 0.3s;
         }
-        .hint { margin-top: 15px; font-size: 10px; color: var(--cream); opacity: 0.6; text-transform: uppercase; }
+        .mode-info { margin-top: 10px; font-size: 10px; color: var(--gold); opacity: 0.8; letter-spacing: 1px; }
 
-        #video-container { position: fixed; bottom: 10px; right: 10px; width: 160px; height: 120px; opacity: 0; pointer-events: none; }
+        #video-container { position: fixed; bottom: 10px; right: 10px; width: 120px; height: 90px; opacity: 0; pointer-events: none; }
         @keyframes spin { 100% { transform: rotate(360deg); } }
     </style>
 </head>
@@ -53,15 +53,15 @@
 
     <div id="loader">
         <div class="spinner" id="spinner"></div>
-        <p id="status">WEAVING MATHEMATICAL MAGIC...</p>
-        <button id="start-btn">IGNITE MAGIC</button>
+        <p id="status">IGNITING CRYSTAL LIGHTS...</p>
+        <button id="start-btn">ENTER MAGIC</button>
     </div>
 
     <div class="ui" id="ui">
         <h1>Merry Christmas</h1>
         <div class="controls">
-            <button class="btn-upload" onclick="document.getElementById('file-input').click()">ADD MEMORIES</button>
-            <div class="hint">Fist: Assemble | Open: Scatter | Pinch: Focus | 'H': Toggle UI</div>
+            <button class="btn-upload" onclick="document.getElementById('file-input').click()">ADD MEMORY</button>
+            <div class="mode-info" id="mode-text">MOUSE CONTROL ACTIVE</div>
             <input type="file" id="file-input" hidden accept="image/*">
         </div>
     </div>
@@ -85,11 +85,11 @@
         import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
         import { FilesetResolver, HandLandmarker } from '@mediapipe/tasks-vision';
 
-        // --- Core Constants & State ---
-        const STATE = { mode: 'TREE', rotTarget: { x: 0, y: 0 }, focusedPhoto: null };
-        let audioManager, handLandmarker, particles = [];
+        // --- 核心配置 ---
+        const STATE = { mode: 'TREE', rot: { x: 0, y: 0 }, aiActive: false, focusedPhoto: null };
+        let particles = [], audioManager, handLandmarker;
 
-        // --- Scene Initialization ---
+        // --- 渲染设置 ---
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
         camera.position.set(0, 5, 45);
@@ -107,22 +107,15 @@
         const mainGroup = new THREE.Group();
         scene.add(mainGroup);
 
-        // --- Lights ---
+        // 灯光
         scene.add(new THREE.AmbientLight(0xffffff, 0.4));
         const pLight = new THREE.PointLight(0xd4af37, 1000); pLight.position.set(0, 10, 5); scene.add(pLight);
 
-        // --- Procedural Generation ---
+        // --- 纯代码圣诞树 (程序化生成) ---
         function initProceduralTree() {
-            // Trunk
-            const trunkGeo = new THREE.CylinderGeometry(0.1, 0.6, 32, 8);
-            const trunkMat = new THREE.MeshStandardMaterial({ color: 0x1a0a00 });
-            const trunk = new THREE.Mesh(trunkGeo, trunkMat);
-            trunk.position.y = -6; mainGroup.add(trunk);
-
-            // Particles (Magic Dust)
-            const count = 2500;
-            const pGeo = new THREE.IcosahedronGeometry(0.16, 0);
-            const pMat = new THREE.MeshStandardMaterial({ color: 0xfceea7, emissive: 0xd4af37, emissiveIntensity: 2.5 });
+            const count = 2000;
+            const pGeo = new THREE.IcosahedronGeometry(0.18, 0);
+            const pMat = new THREE.MeshStandardMaterial({ color: 0xfceea7, emissive: 0xd4af37, emissiveIntensity: 2 });
 
             for (let i = 0; i < count; i++) {
                 const mesh = new THREE.Mesh(pGeo, pMat);
@@ -135,17 +128,14 @@
                             const r = 16 * (1 - this.id);
                             const angle = this.id * Math.PI * 60 + Date.now() * 0.0008;
                             this.target.set(Math.cos(angle) * r, this.id * 32 - 16, Math.sin(angle) * r);
-                        } else if (STATE.mode === 'SCATTER' || (STATE.mode === 'FOCUS' && this !== STATE.focusedPhoto)) {
-                            const r = 24 + Math.sin(Date.now() * 0.001 + this.id * 10) * 8;
-                            this.target.set(Math.cos(this.id * 100) * r, Math.sin(this.id * 200) * r, Math.sin(this.id * 100) * r);
-                        }
-                        
-                        if (STATE.mode === 'FOCUS' && this === STATE.focusedPhoto) {
-                            this.target.set(0, 2, 35);
-                            this.mesh.scale.lerp(new THREE.Vector3(4.5, 4.5, 4.5), 0.1);
                         } else {
-                            const s = this.type === 'PHOTO' ? 1.5 : 1.0;
-                            this.mesh.scale.lerp(new THREE.Vector3(s, s, s), 0.1);
+                            const r = 25, a = this.id * 100;
+                            this.target.set(Math.cos(a) * r, Math.sin(this.id * 200) * r, Math.sin(a) * r);
+                        }
+                        if (STATE.mode === 'FOCUS' && this === STATE.focusedPhoto) {
+                            this.target.set(0, 2, 35); this.mesh.scale.lerp(new THREE.Vector3(4.5, 4.5, 4.5), 0.1);
+                        } else {
+                            this.mesh.scale.lerp(new THREE.Vector3(1, 1, 1), 0.1);
                         }
                     }
                 };
@@ -153,127 +143,106 @@
             }
         }
 
-        function addPhoto(texture) {
-            const group = new THREE.Group();
-            const photo = new THREE.Mesh(new THREE.PlaneGeometry(4, 4), new THREE.MeshBasicMaterial({ map: texture, side: 2 }));
-            const frame = new THREE.Mesh(new THREE.BoxGeometry(4.2, 4.2, 0.15), new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.8 }));
-            frame.position.z = -0.1; group.add(photo, frame);
-            const p = {
-                mesh: group, id: Math.random(), type: 'PHOTO', target: new THREE.Vector3(),
-                update: particles[0].update // Re-use update logic
-            };
-            particles.push(p); mainGroup.add(group);
-        }
-
-        // --- Audio System ---
+        // --- 音频管理 ---
         class AudioManager {
             constructor() {
-                this.listener = new THREE.AudioListener();
-                camera.add(this.listener);
-                this.bgm = new THREE.Audio(this.listener);
-                this.sfx = new THREE.Audio(this.listener);
-                this.loader = new THREE.AudioLoader();
+                this.listener = new THREE.AudioListener(); camera.add(this.listener);
+                this.bgm = new THREE.Audio(this.listener); this.sfx = new THREE.Audio(this.listener);
             }
             async load() {
+                const loader = new THREE.AudioLoader();
                 const [b, s] = await Promise.all([
-                    this.loader.loadAsync('https://cdn.pixabay.com/audio/2022/11/22/audio_1170bc560d.mp3'),
-                    this.loader.loadAsync('https://threejs.org/examples/sounds/376737__recreationofanon__ui-confirm-beam.mp3')
+                    loader.loadAsync('https://cdn.pixabay.com/audio/2022/11/22/audio_1170bc560d.mp3'),
+                    loader.loadAsync('https://threejs.org/examples/sounds/376737__recreationofanon__ui-confirm-beam.mp3')
                 ]);
-                this.bgm.setBuffer(b); this.bgm.setLoop(true); this.bgm.setVolume(0.35);
+                this.bgm.setBuffer(b); this.bgm.setLoop(true); this.bgm.setVolume(0.3);
                 this.sfx.setBuffer(s); this.sfx.setVolume(0.5);
             }
-            playSfx(mode) {
-                if (this.sfx.isPlaying) this.sfx.stop();
-                const detune = { 'FOCUS': 900, 'TREE': 0, 'SCATTER': -600 };
-                this.sfx.setDetune(detune[mode]);
-                this.sfx.play();
+        }
+
+        // --- 输入交互 ---
+        window.onmousemove = (e) => {
+            if (!STATE.aiActive) {
+                STATE.rot.y = (e.clientX / window.innerWidth - 0.5) * 4;
+                STATE.rot.x = (e.clientY / window.innerHeight - 0.5) * 2;
+            }
+        };
+
+        // --- 启动逻辑 (渐进式) ---
+        (async () => {
+            initProceduralTree();
+            audioManager = new AudioManager();
+            
+            try {
+                await audioManager.load(); // 优先加载音频
+                document.getElementById('status').innerText = 'READY FOR MAGIC';
+            } catch(e) { 
+                document.getElementById('status').innerText = 'READY (SILENT MODE)';
+            }
+
+            document.getElementById('spinner').style.display = 'none';
+            const btn = document.getElementById('start-btn');
+            btn.style.display = 'block';
+            
+            btn.onclick = () => {
+                try { audioManager.bgm.play(); } catch(e){}
+                document.getElementById('loader').style.opacity = '0';
+                setTimeout(() => { document.getElementById('loader').remove(); initAI(); }, 800);
+                animate();
+            };
+        })();
+
+        // --- AI 手势 (后台初始化) ---
+        async function initAI() {
+            try {
+                const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm");
+                handLandmarker = await HandLandmarker.createFromOptions(vision, {
+                    baseOptions: { modelAssetPath: `https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task`, delegate: "GPU" },
+                    runningMode: "VIDEO"
+                });
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('webcam').srcObject = stream;
+                STATE.aiActive = true;
+                document.getElementById('mode-text').innerText = "HAND GESTURE ACTIVE";
+                detectHand();
+            } catch(e) {
+                console.warn("AI Loader failed or no Camera. Falling back to mouse.");
             }
         }
 
-        // --- MediaPipe CV ---
-        async function initAI() {
-            const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm");
-            handLandmarker = await HandLandmarker.createFromOptions(vision, {
-                baseOptions: { modelAssetPath: `https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task`, delegate: "GPU" },
-                runningMode: "VIDEO"
-            });
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-            document.getElementById('webcam').srcObject = stream;
-        }
-
-        async function detectHand() {
+        function detectHand() {
             const results = handLandmarker.detectForVideo(document.getElementById('webcam'), performance.now());
             if (results.landmarks?.length > 0) {
                 const lm = results.landmarks[0];
-                STATE.rotTarget.y = (lm[9].x - 0.5) * 2.5;
-                STATE.rotTarget.x = (lm[9].y - 0.5) * 1.5;
-                
+                STATE.rot.y = (lm[9].x - 0.5) * 3; STATE.rot.x = (lm[9].y - 0.5) * 2;
                 const d = (a, b) => Math.hypot(lm[a].x - lm[b].x, lm[a].y - lm[b].y);
-                const isPinch = d(4, 8) < 0.045;
+                const isPinch = d(4, 8) < 0.04;
                 const spread = [8,12,16,20].reduce((s, i) => s + d(i, 0), 0) / 4;
 
-                let next = STATE.mode;
-                if (isPinch) next = 'FOCUS';
-                else if (spread < 0.22) next = 'TREE';
-                else if (spread > 0.38) next = 'SCATTER';
-
-                if (next !== STATE.mode) {
-                    if (next === 'FOCUS') {
-                        const photos = particles.filter(p => p.type === 'PHOTO');
-                        STATE.focusedPhoto = photos[Math.floor(Math.random() * photos.length)];
-                    }
-                    STATE.mode = next;
-                    audioManager.playSfx(next);
+                let nextMode = spread > 0.35 ? 'SCATTER' : 'TREE';
+                if (isPinch) nextMode = 'FOCUS';
+                
+                if (nextMode !== STATE.mode) {
+                    STATE.mode = nextMode;
+                    if(audioManager.sfx.isPlaying) audioManager.sfx.stop();
+                    audioManager.sfx.setDetune(nextMode === 'TREE' ? 0 : 600);
+                    audioManager.sfx.play();
                 }
             }
             requestAnimationFrame(detectHand);
         }
 
-        // --- Main execution ---
-        (async () => {
-            initProceduralTree();
-            audioManager = new AudioManager();
-            
-            // Add initial canvas photo
-            const cv = document.createElement('canvas'); cv.width=512; cv.height=512;
-            const ctx = cv.getContext('2d'); ctx.fillStyle='#111'; ctx.fillRect(0,0,512,512);
-            ctx.fillStyle='#d4af37'; ctx.font='bold 42px Cinzel'; ctx.textAlign='center'; ctx.fillText('JOYEUX NOËL', 256, 256);
-            addPhoto(new THREE.CanvasTexture(cv));
-
-            await Promise.all([initAI(), audioManager.load()]);
-
-            document.getElementById('spinner').style.display = 'none';
-            document.getElementById('status').innerText = 'READY TO CELEBRATE';
-            const btn = document.getElementById('start-btn');
-            btn.style.display = 'block';
-            btn.onclick = () => {
-                audioManager.bgm.play();
-                document.getElementById('loader').style.opacity = '0';
-                setTimeout(() => { document.getElementById('loader').remove(); detectHand(); }, 600);
-                animate();
-            };
-        })();
-
         function animate() {
             requestAnimationFrame(animate);
             particles.forEach(p => p.update());
-            mainGroup.rotation.y = THREE.MathUtils.lerp(mainGroup.rotation.y, STATE.rotTarget.y, 0.05);
-            mainGroup.rotation.x = THREE.MathUtils.lerp(mainGroup.rotation.x, STATE.rotTarget.x, 0.05);
+            mainGroup.rotation.y = THREE.MathUtils.lerp(mainGroup.rotation.y, STATE.rot.y, 0.05);
+            mainGroup.rotation.x = THREE.MathUtils.lerp(mainGroup.rotation.x, STATE.rot.x, 0.05);
             composer.render();
         }
 
         window.onresize = () => {
             camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight); composer.setSize(window.innerWidth, window.innerHeight);
-        };
-        window.onkeydown = e => e.key.toLowerCase()==='h' && document.getElementById('ui').classList.toggle('ui-hidden');
-        document.getElementById('file-input').onchange = e => {
-            const f = e.target.files[0];
-            if(f) {
-                const r = new FileReader();
-                r.onload = ev => new THREE.TextureLoader().load(ev.target.result, t => { t.colorSpace = THREE.SRGBColorSpace; addPhoto(t); });
-                r.readAsDataURL(f);
-            }
         };
     </script>
 </body>
